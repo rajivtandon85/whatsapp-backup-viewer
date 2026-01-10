@@ -105,19 +105,41 @@ function App() {
   }, [drive]);
   
   // Handle password submit
-  const handlePasswordSubmit = useCallback(async (password: string): Promise<boolean> => {
-    const success = await drive.unlockPrivate(password);
-    if (success && pendingPrivateChat) {
-      // Add to visible private chats
-      setVisiblePrivateChats(prev => [...prev, pendingPrivateChat]);
-      // Load the chat
+  const handlePasswordSubmit = useCallback(async (password: string): Promise<{ success: boolean; error?: string }> => {
+    const passwordCorrect = await drive.unlockPrivate(password);
+    if (!passwordCorrect) {
+      return { success: false, error: 'Incorrect password' };
+    }
+    
+    if (!pendingPrivateChat) {
+      return { success: false, error: 'No chat selected' };
+    }
+
+    // Password correct, now load the chat
+    // Add to visible private chats
+    setVisiblePrivateChats(prev => [...prev, pendingPrivateChat]);
+    
+    // Load the chat - if it fails (e.g., token expired), show appropriate error
+    try {
+      // Ensure token is valid before loading chat
+      const hasValidToken = await drive.ensureValidToken();
+      if (!hasValidToken) {
+        return { success: false, error: 'Session expired. Please sign in again.' };
+      }
+      
       const chat = await drive.loadChat(pendingPrivateChat);
       if (chat) {
         setSelectedChat(chat);
+        setPendingPrivateChat(null); // Only close if chat loaded successfully
+        return { success: true };
+      } else {
+        // Chat failed to load
+        return { success: false, error: 'Failed to load chat. Please try again.' };
       }
-      setPendingPrivateChat(null);
+    } catch (error) {
+      // Error loading chat
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to load chat. Please try again.' };
     }
-    return success;
   }, [drive, pendingPrivateChat]);
   
   // Handle back/navigation - lock private chats

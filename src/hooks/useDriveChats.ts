@@ -246,10 +246,7 @@ export function useDriveChats() {
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
-      // Always load fresh from Drive (cache disabled for reliability)
-      // TODO: Re-enable caching once stable
-
-      // Load from Drive
+      // Load from Drive (token validation should be done before calling this)
       const { chatTexts, mediaFiles } = await getChatFiles(chatFolder);
 
       if (chatTexts.length === 0) {
@@ -427,6 +424,7 @@ export function useDriveChats() {
     loadChat,
     getMediaUrl,
     refresh,
+    ensureValidToken,
     generateHashForPassword,
   };
 }

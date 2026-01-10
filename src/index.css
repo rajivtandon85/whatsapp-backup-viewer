@@ -9,21 +9,13 @@
 }
 
 @layer utilities {
-  /* Safe area insets for iOS PWA */
+  /* Safe area insets for iOS PWA - only top/bottom for status bar */
   .safe-top {
     padding-top: calc(0.75rem + env(safe-area-inset-top));
   }
   
   .safe-bottom {
     padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
-  }
-  
-  .safe-left {
-    padding-left: calc(0.75rem + env(safe-area-inset-left));
-  }
-  
-  .safe-right {
-    padding-right: calc(0.75rem + env(safe-area-inset-right));
   }
 }
 

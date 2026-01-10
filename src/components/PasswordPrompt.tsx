@@ -9,7 +9,7 @@ import { Lock, Eye, EyeOff, X } from 'lucide-react';
 interface PasswordPromptProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (password: string) => Promise<boolean>;
+  onSubmit: (password: string) => Promise<{ success: boolean; error?: string }>;
   chatName?: string;
 }
 
@@ -34,15 +34,15 @@ export const PasswordPrompt: React.FC<PasswordPromptProps> = ({
     setError(null);
 
     try {
-      const success = await onSubmit(password);
-      if (success) {
+      const result = await onSubmit(password);
+      if (result.success) {
         setPassword('');
         onClose();
       } else {
-        setError('Incorrect password');
+        setError(result.error || 'Failed to unlock chat');
       }
-    } catch {
-      setError('Failed to verify password');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to unlock chat');
     } finally {
       setIsLoading(false);
     }

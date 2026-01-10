@@ -180,11 +180,11 @@ export const MessageBubble = React.memo(function MessageBubble({
       ref={elementRef}
       id={`msg-${message.id}`}
       data-msg-id={message.id}
-      className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'} px-4 ${isFirstInGroup ? 'mt-2' : 'mt-0.5'}`}
+      className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'} px-2 md:px-4 ${isFirstInGroup ? 'mt-2' : 'mt-0.5'}`}
     >
       <div 
         className={`
-          relative max-w-md min-w-[60px]
+          relative max-w-[85%] md:max-w-md min-w-[60px]
           ${isOutgoing 
             ? 'bg-whatsapp-outgoing dark:bg-whatsapp-outgoing-dark text-white' 
             : 'bg-whatsapp-incoming dark:bg-whatsapp-incoming-dark text-white'
