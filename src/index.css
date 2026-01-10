@@ -22,7 +22,8 @@
 @layer components {
   /* Custom scrollbar for WhatsApp feel */
   .wa-scrollbar::-webkit-scrollbar {
-    width: 6px;
+    width: 12px; /* Thicker for touch */
+    height: 12px;
   }
   
   .wa-scrollbar::-webkit-scrollbar-track {
@@ -31,6 +32,7 @@
   
   .wa-scrollbar::-webkit-scrollbar-thumb {
     @apply bg-gray-400 dark:bg-gray-600 rounded-full;
+    border: 2px solid transparent; /* extra touch target */
   }
   
   .wa-scrollbar::-webkit-scrollbar-thumb:hover {
