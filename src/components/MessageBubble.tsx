@@ -180,15 +180,11 @@ export const MessageBubble = React.memo(function MessageBubble({
       ref={elementRef}
       id={`msg-${message.id}`}
       data-msg-id={message.id}
-      className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'} px-2 md:px-4 ${isFirstInGroup ? 'mt-2' : 'mt-0.5'}`}
+      className={`flex w-full overflow-hidden ${isOutgoing ? 'justify-end' : 'justify-start'} px-1 ${isFirstInGroup ? 'mt-2' : 'mt-0.5'}`}
     >
       <div 
         className={`
-          relative max-w-[85%] md:max-w-md min-w-[60px]
-          ${isOutgoing 
-            ? 'bg-whatsapp-outgoing dark:bg-whatsapp-outgoing-dark text-white' 
-            : 'bg-whatsapp-incoming dark:bg-whatsapp-incoming-dark text-white'
-          }
+          relative w-fit min-w-[60px]
           ${emojiOnly ? 'bg-transparent shadow-none' : ''}
           ${isFirstInGroup && !isOutgoing ? 'rounded-tl-none' : ''}
           ${isFirstInGroup && isOutgoing ? 'rounded-tr-none' : ''}
@@ -196,7 +192,12 @@ export const MessageBubble = React.memo(function MessageBubble({
           ${!isFirstInGroup && !isLastInGroup ? 'rounded-lg' : ''}
           ${emojiOnly ? '' : 'shadow-sm'}
           ${isActiveMatch ? 'ring-2 ring-yellow-300/80 ring-offset-2 ring-offset-transparent' : ''}
+          ${isOutgoing 
+            ? 'bg-whatsapp-outgoing dark:bg-whatsapp-outgoing-dark text-white' 
+            : 'bg-whatsapp-incoming dark:bg-whatsapp-incoming-dark text-white'
+          }
         `}
+        style={{ maxWidth: 'calc(100% - 40px)' }}
       >
         {/* Sender name (for group chats, only on incoming messages) */}
         {showSender && !isOutgoing && isFirstInGroup && (
@@ -250,7 +251,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             <img 
               src={displayUrl} 
               alt={message.mediaFileName || 'Image'}
-              className="max-w-full h-auto max-h-96 object-contain hover:opacity-90 transition-opacity"
+              className="w-full h-auto max-h-80 object-contain hover:opacity-90 transition-opacity"
               loading="lazy"
             />
             {/* Show loading indicator while loading */}
@@ -440,8 +441,8 @@ export const MessageBubble = React.memo(function MessageBubble({
         
         {/* Text content */}
         {message.content && message.type !== 'call' && (
-          <div className={`px-2 ${message.type !== 'text' ? 'pt-1' : 'pt-1.5'} pb-1.5 ${message.isEdited ? 'pr-24' : 'pr-16'}`}>
-            <div className={`${emojiOnly ? 'text-5xl leading-none' : 'text-sm'} whitespace-pre-wrap break-words text-white`}>
+          <div className={`px-2 ${message.type !== 'text' ? 'pt-1' : 'pt-1.5'} pb-1.5 ${message.isEdited ? 'pr-24' : 'pr-16'} overflow-hidden`}>
+            <div className={`${emojiOnly ? 'text-5xl leading-none' : 'text-sm'} whitespace-pre-wrap break-words overflow-wrap-anywhere text-white`} style={{ wordBreak: 'break-word' }}>
               {message.content}
             </div>
           </div>

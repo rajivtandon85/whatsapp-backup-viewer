@@ -336,7 +336,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       {/* Messages Area */}
       <div 
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto wa-scrollbar px-2 md:px-4 py-4 relative"
+        className="flex-1 overflow-y-auto overflow-x-hidden wa-scrollbar py-4 relative"
         style={{
           backgroundImage: darkMode
             ? `url('/wa-bg-dark.png')`

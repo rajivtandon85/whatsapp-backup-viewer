@@ -340,7 +340,7 @@ function App() {
         </div>
         
         {/* Chat view */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative overflow-hidden">
           {selectedChat ? (
             <>
               <ChatView
