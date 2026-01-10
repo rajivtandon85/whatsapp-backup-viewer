@@ -262,9 +262,9 @@ function App() {
   
   // Main app interface
   return (
-    <div className="h-screen flex flex-col bg-whatsapp-panel dark:bg-whatsapp-background-dark">
-      {/* Top bar (mobile) */}
-      <div className="lg:hidden bg-whatsapp-header dark:bg-whatsapp-header-dark border-b border-whatsapp-border dark:border-whatsapp-border-dark p-3 flex items-center justify-between">
+    <div className="h-screen flex flex-col bg-whatsapp-panel dark:bg-whatsapp-background-dark safe-bottom">
+      {/* Top bar (mobile) - with safe area padding */}
+      <div className="lg:hidden bg-whatsapp-header dark:bg-whatsapp-header-dark border-b border-whatsapp-border dark:border-whatsapp-border-dark px-3 pb-3 flex items-center justify-between safe-top">
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-whatsapp-text dark:text-whatsapp-text-dark">
           {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>

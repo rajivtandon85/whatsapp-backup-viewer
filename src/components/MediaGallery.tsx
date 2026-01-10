@@ -89,9 +89,9 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   if (!currentMedia) return null;
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col overflow-hidden safe-bottom">
       {/* Header */}
-      <div className="flex-shrink-0 bg-black bg-opacity-80 p-4 flex items-center justify-between">
+      <div className="flex-shrink-0 bg-black bg-opacity-80 px-4 pb-4 flex items-center justify-between safe-top">
         <div className="flex-1 min-w-0">
           <h3 className="text-white font-semibold truncate">
             {currentMedia.sender}
