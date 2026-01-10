@@ -1,0 +1,16 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#00a884"/>
+  
+  <!-- WhatsApp-style chat bubble -->
+  <g transform="translate(100, 100)">
+    <!-- Main chat bubble -->
+    <path d="M 156 280 C 156 223 201 176 256 176 C 311 176 356 223 356 280 C 356 337 311 384 256 384 C 238 384 221 379 206 370 L 156 384 L 170 334 C 161 319 156 301 156 280 Z" fill="white" stroke="none"/>
+    
+    <!-- Message lines inside bubble -->
+    <line x1="206" y1="260" x2="306" y2="260" stroke="#00a884" stroke-width="8" stroke-linecap="round"/>
+    <line x1="206" y1="280" x2="286" y2="280" stroke="#00a884" stroke-width="8" stroke-linecap="round"/>
+    <line x1="206" y1="300" x2="306" y2="300" stroke="#00a884" stroke-width="8" stroke-linecap="round"/>
+  </g>
+</svg>
+

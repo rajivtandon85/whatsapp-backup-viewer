@@ -1,0 +1,4 @@
+Note: Icon files need to be created. You can:
+1. Use an online tool like https://realfavicongenerator.net/
+2. Create a 192x192 and 512x512 PNG with a WhatsApp-style icon
+3. Or use the placeholder SVG for now

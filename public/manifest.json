@@ -1,0 +1,33 @@
+{
+  "name": "WhatsApp Backup Viewer",
+  "short_name": "WA Viewer",
+  "description": "View your WhatsApp chat backups beautifully and privately",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#00a884",
+  "theme_color": "#00a884",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "productivity"],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "750x1334",
+      "type": "image/png"
+    }
+  ]
+}
+
