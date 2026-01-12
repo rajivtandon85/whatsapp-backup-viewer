@@ -228,7 +228,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             <img
               src={displayUrl}
               alt={message.mediaFileName || 'Image'}
-              className="block w-full h-auto max-h-[500px] object-contain hover:opacity-90 transition-opacity"
+              className="block w-full h-auto max-h-[500px] object-cover hover:opacity-90 transition-opacity"
               loading="lazy"
             />
             {/* Show loading indicator while loading */}
@@ -420,7 +420,7 @@ export const MessageBubble = React.memo(function MessageBubble({
         {message.content && message.type !== 'call' && (
           <div className={`px-2 ${message.type !== 'text' ? 'pt-1' : 'pt-1.5'} pb-1.5 ${message.isEdited ? 'pr-24' : 'pr-16'} overflow-hidden`}>
             <div className={`${emojiOnly ? 'text-5xl leading-none' : 'text-sm'} whitespace-pre-wrap break-words overflow-wrap-anywhere text-white`} style={{ wordBreak: 'break-word' }}>
-              {message.content}
+              {parseTextWithLinks(message.content)}
             </div>
           </div>
         )}
@@ -465,6 +465,33 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+/**
+ * Parse text content and convert URLs to clickable links
+ */
+function parseTextWithLinks(text: string): React.ReactNode {
+  // Regex to match URLs (http, https, and maps.app.goo.gl links)
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+
+  return parts.map((part, index) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-blue-300"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
 }
 
 
