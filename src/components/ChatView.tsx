@@ -225,9 +225,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
         {onBack && (
           <button
             onClick={onBack}
-            className="lg:hidden text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark hover:text-whatsapp-text dark:hover:text-whatsapp-text-dark"
+            className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark hover:text-whatsapp-text dark:hover:text-whatsapp-text-dark p-1"
+            aria-label="Back to chat list"
           >
-            <ArrowLeft size={24} />
+            <ArrowLeft size={28} />
           </button>
         )}
         

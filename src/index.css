@@ -20,22 +20,29 @@
 }
 
 @layer components {
-  /* Custom scrollbar for WhatsApp feel */
+  /* Custom scrollbar - extra thick for mobile touch */
   .wa-scrollbar::-webkit-scrollbar {
-    width: 12px; /* Thicker for touch */
-    height: 12px;
+    width: 20px;
+    height: 20px;
   }
   
   .wa-scrollbar::-webkit-scrollbar-track {
-    @apply bg-transparent;
+    @apply bg-gray-200 dark:bg-gray-800;
   }
   
   .wa-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-gray-400 dark:bg-gray-600 rounded-full;
-    border: 2px solid transparent; /* extra touch target */
+    @apply bg-gray-500 dark:bg-gray-500 rounded-full;
+    border: 4px solid transparent;
+    background-clip: padding-box;
+    min-height: 60px; /* Ensure thumb is big enough to grab */
   }
   
   .wa-scrollbar::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-500 dark:bg-gray-500;
+    @apply bg-gray-600 dark:bg-gray-400;
+  }
+  
+  /* For iOS Safari - ensure touch scrolling works */
+  .wa-scrollbar {
+    -webkit-overflow-scrolling: touch;
   }
 }

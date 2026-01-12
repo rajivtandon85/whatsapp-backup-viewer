@@ -180,7 +180,8 @@ export const MessageBubble = React.memo(function MessageBubble({
       ref={elementRef}
       id={`msg-${message.id}`}
       data-msg-id={message.id}
-      className={`flex w-full overflow-hidden ${isOutgoing ? 'justify-end' : 'justify-start'} px-1 ${isFirstInGroup ? 'mt-2' : 'mt-0.5'}`}
+      className={`flex w-full overflow-hidden ${isOutgoing ? 'justify-end' : 'justify-start'} ${isFirstInGroup ? 'mt-2' : 'mt-0.5'}`}
+      style={{ padding: '0 6px' }}
     >
       <div 
         className={`
@@ -197,7 +198,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             : 'bg-whatsapp-incoming dark:bg-whatsapp-incoming-dark text-white'
           }
         `}
-        style={{ maxWidth: 'calc(100% - 40px)' }}
+        style={{ maxWidth: 'calc(100% - 12px)' }}
       >
         {/* Sender name (for group chats, only on incoming messages) */}
         {showSender && !isOutgoing && isFirstInGroup && (
@@ -251,7 +252,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             <img 
               src={displayUrl} 
               alt={message.mediaFileName || 'Image'}
-              className="w-full h-auto max-h-80 object-contain hover:opacity-90 transition-opacity"
+              className="block w-full h-auto max-h-[400px] object-cover hover:opacity-90 transition-opacity"
               loading="lazy"
             />
             {/* Show loading indicator while loading */}
