@@ -4,7 +4,7 @@
  * Handles different message types: text, image, video, audio, document
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Message } from '../types';
 import { formatMessageTime } from '../utils/timelineBuilder';
 import { 
@@ -78,47 +78,24 @@ export const MessageBubble = React.memo(function MessageBubble({
   const [isLoading, setIsLoading] = useState(false);
   const [vcfContact, setVcfContact] = useState<VcfContact | null>(null);
   const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
-  const elementRef = useRef<HTMLDivElement>(null);
-  
+
   // Use thumbnail for quick preview, full URL once loaded
   const thumbnailUrl = message.thumbnailUrl;
   const mediaUrl = loadedMediaUrl || message.mediaUrl;
   // Show thumbnail immediately if available, otherwise show loaded/original URL
   const displayUrl = mediaUrl || thumbnailUrl;
   const isVcf = message.mediaFileName?.toLowerCase().endsWith('.vcf') || message.mediaMimeType === 'text/vcard';
-  
-  
-  // Intersection Observer for lazy loading
+
+  // Auto-load images, videos, and VCF files from Drive when component mounts
+  // (With virtualization, component only mounts when visible, so no IntersectionObserver needed)
   useEffect(() => {
-    const element = elementRef.current;
-    if (!element) return;
-    
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          observer.disconnect(); // Stop observing once visible
-        }
-      },
-      { rootMargin: '200px' } // Start loading 200px before visible
-    );
-    
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  
-  // Auto-load images, videos, and VCF files from Drive when visible (lazy load)
-  useEffect(() => {
-    if (!isVisible) return;
-    
-    const shouldAutoLoad = (message.type === 'image' || message.type === 'video' || isVcf) && 
-                           message.driveFileId && 
-                           !message.mediaUrl && 
+    const shouldAutoLoad = (message.type === 'image' || message.type === 'video' || isVcf) &&
+                           message.driveFileId &&
+                           !message.mediaUrl &&
                            !loadedMediaUrl &&
-                           getMediaUrl && 
+                           getMediaUrl &&
                            message.mediaMimeType;
-    
+
     if (shouldAutoLoad) {
       setIsLoading(true);
       getMediaUrl(message.driveFileId!, message.mediaMimeType!)
@@ -126,7 +103,7 @@ export const MessageBubble = React.memo(function MessageBubble({
         .catch(err => console.error('Failed to auto-load media:', err))
         .finally(() => setIsLoading(false));
     }
-  }, [isVisible, message.driveFileId, message.mediaUrl, message.type, message.mediaMimeType, getMediaUrl, loadedMediaUrl, isVcf]);
+  }, [message.driveFileId, message.mediaUrl, message.type, message.mediaMimeType, getMediaUrl, loadedMediaUrl, isVcf]);
   
   // Parse VCF content when URL is available
   useEffect(() => {
@@ -177,7 +154,6 @@ export const MessageBubble = React.memo(function MessageBubble({
   
   return (
     <div
-      ref={elementRef}
       id={`msg-${message.id}`}
       data-msg-id={message.id}
       className={`flex w-full overflow-hidden ${isOutgoing ? 'justify-end' : 'justify-start'} ${isFirstInGroup ? 'mt-2' : 'mt-0.5'}`}
