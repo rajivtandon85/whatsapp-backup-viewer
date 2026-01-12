@@ -196,9 +196,10 @@ function parseMessages(
       currentMessage = match;
     } else if (currentMessage) {
       // This line is a continuation of the previous message (multi-line message)
-      // Skip if it looks like ANY kind of timestamp line - these should NEVER be content
-      const looksLikeTimestamp = /\[?\d{1,2}\/\d{1,2}\/\d{2,4}.*\d{1,2}:\d{2}/.test(line);
-      if (looksLikeTimestamp) {
+      // Only skip if line STARTS with a WhatsApp timestamp pattern (not just contains date-like text)
+      // WhatsApp format: [DD/MM/YY, HH:MM:SS am/pm] or similar at START of line
+      const startsWithTimestamp = /^\s*\[?\d{1,2}\/\d{1,2}\/\d{2,4},?\s+\d{1,2}:\d{2}(:\d{2})?\s*(am|pm|AM|PM)?\s*\]/.test(line);
+      if (startsWithTimestamp) {
         // This is a timestamp line that failed to parse - DO NOT add as content
         console.warn('⚠️ Skipped unparsed timestamp line:', line.substring(0, 100));
         // Try to save current message and treat this as start of new unparseable message
@@ -207,6 +208,7 @@ function parseMessages(
         }
         currentMessage = null; // Reset - we'll lose this line but that's better than corrupting
       } else {
+        // Normal continuation line - append to current message
         currentMessage.content += '\n' + line;
       }
     } else {
