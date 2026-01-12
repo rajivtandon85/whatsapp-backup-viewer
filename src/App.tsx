@@ -362,7 +362,7 @@ function App() {
                     placeholder="Search in conversation..."
                     value={chatSearchQuery}
                     onChange={(e) => setChatSearchQuery(e.target.value)}
-                    className="flex-1 bg-white dark:bg-whatsapp-panel-dark border border-whatsapp-border dark:border-whatsapp-border-dark rounded-lg px-3 py-2 text-sm"
+                    className="flex-1 bg-white dark:bg-whatsapp-panel-dark border border-whatsapp-border dark:border-whatsapp-border-dark rounded-lg px-3 py-2 text-sm text-whatsapp-text dark:text-whatsapp-text-dark placeholder:text-whatsapp-text-secondary dark:placeholder:text-whatsapp-text-secondary-dark"
                     autoFocus
                   />
                   <button onClick={() => { setShowSearch(false); setChatSearchQuery(''); }}>

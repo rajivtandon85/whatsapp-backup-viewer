@@ -336,13 +336,23 @@ export async function loadMediaFile(fileId: string, mimeType: string): Promise<s
  */
 function isMediaFile(fileName: string): boolean {
   const mediaExtensions = [
+    // Images
     '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif',
+    // Videos
     '.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp',
+    // Audio
     '.mp3', '.ogg', '.opus', '.m4a', '.aac', '.wav', '.amr',
-    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-    '.vcf', '.apk',
+    // Documents
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt',
+    '.zip', '.rar', '.7z',
+    // Data files
+    '.csv', '.json', '.xml',
+    // Apple/mobile specific
+    '.pkpass', '.vcf', '.apk', '.ics',
+    // Other
+    '.html', '.htm',
   ];
-  
+
   const lowerName = fileName.toLowerCase();
   return mediaExtensions.some(ext => lowerName.endsWith(ext));
 }

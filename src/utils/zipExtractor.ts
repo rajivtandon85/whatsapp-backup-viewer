@@ -85,10 +85,14 @@ function isMediaFile(fileName: string): boolean {
     // Documents
     '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt',
     '.zip', '.rar', '.7z',
+    // Data files
+    '.csv', '.json', '.xml',
+    // Apple/mobile specific
+    '.pkpass', '.vcf', '.apk', '.ics',
     // Other
-    '.vcf', '.apk'
+    '.html', '.htm',
   ];
-  
+
   const lowerFileName = fileName.toLowerCase();
   return mediaExtensions.some(ext => lowerFileName.endsWith(ext));
 }
@@ -136,8 +140,18 @@ function getMimeType(fileName: string): string {
     'zip': 'application/zip',
     'rar': 'application/x-rar-compressed',
     '7z': 'application/x-7z-compressed',
+    // Data files
+    'csv': 'text/csv',
+    'json': 'application/json',
+    'xml': 'application/xml',
+    // Apple/mobile specific
+    'pkpass': 'application/vnd.apple.pkpass',
     'vcf': 'text/vcard',
-    'apk': 'application/vnd.android.package-archive'
+    'apk': 'application/vnd.android.package-archive',
+    'ics': 'text/calendar',
+    // Other
+    'html': 'text/html',
+    'htm': 'text/html',
   };
   
   return mimeTypes[extension] || 'application/octet-stream';
