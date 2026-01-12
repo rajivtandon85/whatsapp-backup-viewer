@@ -225,10 +225,10 @@ export const MessageBubble = React.memo(function MessageBubble({
               onMediaClick?.({ ...message, mediaUrl: urlToUse });
             }}
           >
-            <img 
-              src={displayUrl} 
+            <img
+              src={displayUrl}
               alt={message.mediaFileName || 'Image'}
-              className="block w-full h-auto max-h-[400px] object-cover hover:opacity-90 transition-opacity"
+              className="block w-full h-auto max-h-[500px] object-contain hover:opacity-90 transition-opacity"
               loading="lazy"
             />
             {/* Show loading indicator while loading */}
