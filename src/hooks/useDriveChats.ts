@@ -29,8 +29,6 @@ import {
 } from '../services/driveService';
 import {
   initCache,
-  saveCachedChat,
-  saveChatMeta,
 } from '../services/cacheService';
 import { chatCache } from '../services/chatCache';
 import { mediaCache } from '../services/mediaCache';
@@ -131,8 +129,15 @@ export function useDriveChats() {
 
   /**
    * Preload chats in background for instant access
+   * Disabled for now - causing more harm than good with stutter
    */
-  const preloadChatsInBackground = async (chatFolders: ChatFolder[]) => {
+  const preloadChatsInBackground = async (_chatFolders: ChatFolder[]) => {
+    // DISABLED: This was causing stutter and memory issues
+    // Instead, we'll rely on cache-on-demand which works better
+    console.log(`[useDriveChats] Background preload disabled, using cache-on-demand`);
+    return;
+
+    /* OLD CODE - commented out
     console.log(`[useDriveChats] Starting background preload of ${chatFolders.length} chats...`);
 
     // Load chats one by one to avoid overwhelming the API
@@ -158,6 +163,7 @@ export function useDriveChats() {
     }
 
     console.log('[useDriveChats] Background preload complete');
+    */
   };
 
   /**
@@ -350,31 +356,32 @@ export function useDriveChats() {
       const mergedMessages = mergeMessages(allMessages);
       const mergedParticipants = mergeParticipants(allParticipants);
 
+      // Clean messages before caching - remove blob data to save space
+      const cleanMessages = mergedMessages.map(msg => {
+        const cleaned: any = { ...msg };
+
+        // Remove large blob data, keep only URLs and Drive IDs
+        if (msg.mediaUrl && msg.mediaUrl.startsWith('blob:')) {
+          // Don't store blob URLs in cache, they're temporary
+          delete cleaned.mediaUrl;
+        }
+
+        return cleaned;
+      });
+
       const fullChat: Chat = {
         id: chatFolder.id,
         name: chatFolder.name,
-        messages: mergedMessages,
+        messages: cleanMessages,
         participants: mergedParticipants,
         isGroup: mergedParticipants.length > 2,
       };
 
-      // Save to new chat cache (IndexedDB)
+      // Save to new chat cache (IndexedDB) - only text data
       await chatCache.saveChat(fullChat);
 
-      // Save to old cache service (for backwards compatibility)
-      await saveCachedChat({
-        chatId: chatFolder.id,
-        messages: mergedMessages,
-        participants: mergedParticipants,
-        cachedAt: Date.now(),
-      });
-
-      await saveChatMeta({
-        chatId: chatFolder.id,
-        modifiedTime: chatFolder.modifiedTime,
-        messageCount: mergedMessages.length,
-        lastCachedAt: Date.now(),
-      });
+      // Skip old cache service to avoid duplication
+      // The old service was causing the 82MB bloat
 
       setState(prev => ({ ...prev, isLoading: false }));
 
@@ -420,11 +427,17 @@ export function useDriveChats() {
       throw new Error('Session expired. Please sign in again.');
     }
 
-    // Use media cache service (checks cache first, then fetches if needed)
+    // Load from Drive with IndexedDB caching (from driveService)
     const url = await loadMediaFile(driveFileId, mimeType);
 
-    // Store in media cache with LRU eviction
-    await mediaCache.getMedia(driveFileId, url);
+    // Also add to media cache for LRU management
+    // This will help with the 2GB rotating cache
+    try {
+      await mediaCache.getMedia(driveFileId, url);
+    } catch (err) {
+      console.warn('[useDriveChats] Failed to add to media cache:', err);
+      // Don't fail if media cache fails, we still have the URL
+    }
 
     return url;
   }, [ensureValidToken]);

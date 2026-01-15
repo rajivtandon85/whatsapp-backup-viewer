@@ -210,11 +210,24 @@ class ChatCacheService {
     const chats = await this.getAllChats();
     const messageCount = chats.reduce((sum, chat) => sum + chat.messages.length, 0);
 
-    // Rough estimate: ~500 bytes per message on average
-    const estimatedBytes = messageCount * 500;
-    const estimatedSize = estimatedBytes < 1024 * 1024
-      ? `${(estimatedBytes / 1024).toFixed(1)} KB`
-      : `${(estimatedBytes / (1024 * 1024)).toFixed(1)} MB`;
+    // Calculate actual size by serializing
+    let actualBytes = 0;
+    try {
+      for (const chat of chats) {
+        const json = JSON.stringify(chat);
+        actualBytes += new Blob([json]).size;
+      }
+    } catch (err) {
+      console.error('[ChatCache] Failed to calculate size:', err);
+      // Fallback to rough estimate
+      actualBytes = messageCount * 200; // More realistic: ~200 bytes per message
+    }
+
+    const estimatedSize = actualBytes < 1024
+      ? `${actualBytes} B`
+      : actualBytes < 1024 * 1024
+      ? `${(actualBytes / 1024).toFixed(1)} KB`
+      : `${(actualBytes / (1024 * 1024)).toFixed(1)} MB`;
 
     return {
       chatCount: chats.length,
