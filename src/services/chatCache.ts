@@ -202,6 +202,7 @@ class ChatCacheService {
 
   /**
    * Get cache statistics
+   * Only counts text data (what would be in .txt files), NOT media
    */
   async getStats(): Promise<{ chatCount: number; messageCount: number; estimatedSize: string }> {
     await this.init();
@@ -210,24 +211,52 @@ class ChatCacheService {
     const chats = await this.getAllChats();
     const messageCount = chats.reduce((sum, chat) => sum + chat.messages.length, 0);
 
-    // Calculate actual size by serializing
-    let actualBytes = 0;
+    // Calculate size of TEXT data only (equivalent to .txt files)
+    // Exclude media-related fields to get accurate chat text size
+    let textBytes = 0;
     try {
       for (const chat of chats) {
-        const json = JSON.stringify(chat);
-        actualBytes += new Blob([json]).size;
+        // Count only text fields, not media metadata
+        const textOnlyMessages = chat.messages.map(msg => ({
+          id: msg.id,
+          timestamp: msg.timestamp,
+          sender: msg.sender,
+          type: msg.type,
+          content: msg.content || '', // This is the actual text content
+          isOutgoing: msg.isOutgoing,
+          // Skip all media fields - they're counted separately in media cache
+          // driveFileId, thumbnailUrl, mediaFileName, mediaMimeType, mediaSize
+          quotedMessage: msg.quotedMessage ? {
+            sender: msg.quotedMessage.sender,
+            content: msg.quotedMessage.content || '',
+          } : undefined,
+          isDeleted: msg.isDeleted,
+          isEdited: msg.isEdited,
+        }));
+
+        const textOnlyChat = {
+          id: chat.id,
+          name: chat.name,
+          messages: textOnlyMessages,
+          participants: chat.participants,
+          isGroup: chat.isGroup,
+        };
+
+        const json = JSON.stringify(textOnlyChat);
+        textBytes += new Blob([json]).size;
       }
     } catch (err) {
       console.error('[ChatCache] Failed to calculate size:', err);
-      // Fallback to rough estimate
-      actualBytes = messageCount * 200; // More realistic: ~200 bytes per message
+      // Fallback: estimate based on average message content length
+      // .txt files have: timestamp + sender + content
+      textBytes = messageCount * 150; // ~150 bytes per message for text only
     }
 
-    const estimatedSize = actualBytes < 1024
-      ? `${actualBytes} B`
-      : actualBytes < 1024 * 1024
-      ? `${(actualBytes / 1024).toFixed(1)} KB`
-      : `${(actualBytes / (1024 * 1024)).toFixed(1)} MB`;
+    const estimatedSize = textBytes < 1024
+      ? `${textBytes} B`
+      : textBytes < 1024 * 1024
+      ? `${(textBytes / 1024).toFixed(1)} KB`
+      : `${(textBytes / (1024 * 1024)).toFixed(1)} MB`;
 
     return {
       chatCount: chats.length,

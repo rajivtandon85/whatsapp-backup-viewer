@@ -207,7 +207,10 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
 
             {/* Chat Cache */}
             <div className="bg-gray-100 dark:bg-whatsapp-background-dark rounded-lg p-3 space-y-2 text-sm">
-              <div className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark mb-1">Chat Messages</div>
+              <div className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark mb-1">
+                Chat Text
+                <span className="text-xs font-normal text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark ml-2">(.txt files)</span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Chats:</span>
                 <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheStats.chats.count}</span>
@@ -217,21 +220,30 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                 <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheStats.chats.messages.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Size:</span>
+                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Text Size:</span>
                 <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheStats.chats.size}</span>
+              </div>
+              <div className="text-xs text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark mt-1">
+                Message text only, no media
               </div>
             </div>
 
             {/* Media Cache */}
             <div className="bg-gray-100 dark:bg-whatsapp-background-dark rounded-lg p-3 space-y-2 text-sm">
-              <div className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark mb-1">Media Files</div>
+              <div className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark mb-1">
+                Media Files
+                <span className="text-xs font-normal text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark ml-2">(images, videos, docs)</span>
+              </div>
               <div className="flex justify-between">
-                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Files:</span>
+                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Cached Files:</span>
                 <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheStats.media.count}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Size:</span>
+                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Media Size:</span>
                 <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheStats.media.size}</span>
+              </div>
+              <div className="text-xs text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark mt-1">
+                LRU cache, max ~2GB, auto-evicts old files
               </div>
             </div>
 
