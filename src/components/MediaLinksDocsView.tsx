@@ -187,61 +187,76 @@ export const MediaLinksDocsView: React.FC<MediaLinksDocsViewProps> = ({
   );
 };
 
-// Media thumbnail component with lazy loading
+// Media thumbnail component with proper lazy loading
+// Only loads thumbnail when it comes into viewport (Intersection Observer)
 const MediaThumbnail: React.FC<{
   message: Message;
   onClick: () => void;
   getMediaUrl?: (driveFileId: string, mimeType: string) => Promise<string>;
-}> = ({ message, onClick, getMediaUrl }) => {
-  const [loadedUrl, setLoadedUrl] = useState<string | undefined>(message.mediaUrl);
-  const [isLoading, setIsLoading] = useState(false);
+}> = ({ message, onClick }) => {
+  const [isVisible, setIsVisible] = React.useState(false);
+  const imgRef = React.useRef<HTMLDivElement>(null);
 
-  const loadUrl = async () => {
-    if (loadedUrl || isLoading || !message.driveFileId || !getMediaUrl || !message.mediaMimeType) {
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const url = await getMediaUrl(message.driveFileId, message.mediaMimeType);
-      setLoadedUrl(url);
-    } catch (err) {
-      console.error('Failed to load media:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Load on mount if Drive file
+  // Intersection Observer - only load when visible
   React.useEffect(() => {
-    if (message.driveFileId && !message.mediaUrl && getMediaUrl) {
-      loadUrl();
-    }
+    if (!imgRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            // Once visible, stop observing (we don't need to unload)
+            observer.disconnect();
+          }
+        });
+      },
+      {
+        rootMargin: '100px', // Start loading 100px before entering viewport
+        threshold: 0.01,
+      }
+    );
+
+    observer.observe(imgRef.current);
+
+    return () => observer.disconnect();
   }, []);
 
-  const url = loadedUrl || message.mediaUrl;
+  const thumbnailUrl = message.thumbnailUrl;
 
   return (
     <div
-      className="aspect-square bg-gray-200 dark:bg-gray-700 cursor-pointer overflow-hidden relative"
+      ref={imgRef}
+      className="aspect-square bg-gray-200 dark:bg-gray-700 cursor-pointer overflow-hidden relative group"
       onClick={onClick}
     >
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="animate-spin w-6 h-6 border-2 border-whatsapp-primary border-t-transparent rounded-full" />
-        </div>
-      )}
-      {url && message.type === 'image' && (
-        <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
-      )}
-      {url && message.type === 'video' && (
+      {/* Only render image if visible */}
+      {isVisible && thumbnailUrl && message.type === 'image' && (
         <>
-          <video src={url} className="w-full h-full object-cover" preload="metadata" />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+          <img
+            src={thumbnailUrl}
+            alt=""
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+        </>
+      )}
+      {isVisible && thumbnailUrl && message.type === 'video' && (
+        <>
+          <img
+            src={thumbnailUrl}
+            alt=""
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
             <Play className="w-8 h-8 text-white" fill="white" />
           </div>
         </>
       )}
-      {!url && !isLoading && (
+      {/* Show placeholder while not loaded */}
+      {(!isVisible || !thumbnailUrl) && (
         <div className="absolute inset-0 flex items-center justify-center">
           {message.type === 'image' ? (
             <Image className="w-8 h-8 text-gray-400" />

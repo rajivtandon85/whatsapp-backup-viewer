@@ -79,36 +79,27 @@ export const MessageBubble = React.memo(function MessageBubble({
   const [vcfContact, setVcfContact] = useState<VcfContact | null>(null);
   const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
 
-  // Use thumbnail for quick preview, full URL once loaded
+  // Thumbnail-only display strategy (NO auto-loading!)
+  // Thumbnails are ~50-100 KB and load instantly
+  // Full images only load when user opens MediaGallery
   const thumbnailUrl = message.thumbnailUrl;
-  const mediaUrl = loadedMediaUrl || message.mediaUrl;
-  // Show thumbnail immediately if available, otherwise show loaded/original URL
-  const displayUrl = mediaUrl || thumbnailUrl;
+  const fullMediaUrl = loadedMediaUrl || message.mediaUrl;
+
+  // Display logic:
+  // - Show thumbnail if available (instant, no loading)
+  // - Show full image if already loaded (from first open)
+  // - Never auto-load full images (prevents phone heating)
+  const displayUrl = fullMediaUrl || thumbnailUrl;
+  const isShowingThumbnail = !fullMediaUrl && !!thumbnailUrl;
   const isVcf = message.mediaFileName?.toLowerCase().endsWith('.vcf') || message.mediaMimeType === 'text/vcard';
 
-  // Auto-load images, videos, and VCF files from Drive when component mounts
-  // (With virtualization, component only mounts when visible, so no IntersectionObserver needed)
-  useEffect(() => {
-    const shouldAutoLoad = (message.type === 'image' || message.type === 'video' || isVcf) &&
-                           message.driveFileId &&
-                           !message.mediaUrl &&
-                           !loadedMediaUrl &&
-                           getMediaUrl &&
-                           message.mediaMimeType;
-
-    if (shouldAutoLoad) {
-      setIsLoading(true);
-      getMediaUrl(message.driveFileId!, message.mediaMimeType!)
-        .then(url => setLoadedMediaUrl(url))
-        .catch(err => console.error('Failed to auto-load media:', err))
-        .finally(() => setIsLoading(false));
-    }
-  }, [message.driveFileId, message.mediaUrl, message.type, message.mediaMimeType, getMediaUrl, loadedMediaUrl, isVcf]);
+  // REMOVED: Auto-load logic that was causing phone to heat up
+  // Images now only load when user clicks to open in MediaGallery
   
   // Parse VCF content when URL is available
   useEffect(() => {
-    if (isVcf && mediaUrl && !vcfContact) {
-      fetch(mediaUrl)
+    if (isVcf && fullMediaUrl && !vcfContact) {
+      fetch(fullMediaUrl)
         .then(res => res.text())
         .then(text => {
           const contact = parseVcf(text);
@@ -116,7 +107,7 @@ export const MessageBubble = React.memo(function MessageBubble({
         })
         .catch(err => console.error('Failed to parse VCF:', err));
     }
-  }, [isVcf, mediaUrl, vcfContact]);
+  }, [isVcf, fullMediaUrl, vcfContact]);
   
   // Load media URL on-demand (for documents, etc.)
   const loadMedia = async () => {
@@ -217,36 +208,37 @@ export const MessageBubble = React.memo(function MessageBubble({
         )}
 
         {message.type === 'image' && displayUrl && (
-          <div 
-            className="cursor-pointer overflow-hidden rounded-t-lg relative"
+          <div
+            className="cursor-pointer overflow-hidden rounded-t-lg relative group"
             onClick={() => {
-              // Use loaded full image URL, fallback to display URL
-              const urlToUse = loadedMediaUrl || mediaUrl || displayUrl;
-              onMediaClick?.({ ...message, mediaUrl: urlToUse });
+              // Pass message to MediaGallery - it will handle loading full image
+              onMediaClick?.({ ...message });
             }}
           >
             <img
               src={displayUrl}
               alt={message.mediaFileName || 'Image'}
-              className="block w-full h-auto max-h-[500px] object-cover hover:opacity-90 transition-opacity"
+              className="block w-full h-auto max-h-[500px] object-cover transition-opacity duration-300 hover:opacity-90"
               loading="lazy"
             />
-            {/* Show loading indicator while loading */}
-            {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                <div className="animate-spin w-8 h-8 border-3 border-white border-t-transparent rounded-full" />
+            {/* Show tap indicator on thumbnail */}
+            {isShowingThumbnail && (
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                <div className="bg-black/60 text-white text-sm px-3 py-1.5 rounded-full">
+                  Tap to view full image
+                </div>
               </div>
             )}
           </div>
         )}
         
-        {message.type === 'video' && mediaUrl && (
-          <div 
+        {message.type === 'video' && fullMediaUrl && (
+          <div
             className="relative cursor-pointer overflow-hidden rounded-t-lg bg-black"
-            onClick={() => onMediaClick?.({ ...message, mediaUrl })}
+            onClick={() => onMediaClick?.({ ...message, mediaUrl: fullMediaUrl })}
           >
-            <video 
-              src={mediaUrl}
+            <video
+              src={fullMediaUrl}
               className="max-w-full h-auto max-h-96 object-contain"
               preload="metadata"
             />
@@ -256,7 +248,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           </div>
         )}
 
-        {message.type === 'video' && !mediaUrl && (
+        {message.type === 'video' && !fullMediaUrl && (
           <div className="p-3 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-black/15 flex items-center justify-center">
               {isLoading ? (
@@ -271,12 +263,12 @@ export const MessageBubble = React.memo(function MessageBubble({
           </div>
         )}
         
-        {message.type === 'audio' && mediaUrl && (
+        {message.type === 'audio' && fullMediaUrl && (
           <div className="p-2 flex items-center gap-2">
             <Music className="w-6 h-6 text-whatsapp-primary" />
-            <audio 
-              controls 
-              src={mediaUrl}
+            <audio
+              controls
+              src={fullMediaUrl}
               className="flex-1 max-w-xs"
               preload="metadata"
             >
@@ -347,11 +339,11 @@ export const MessageBubble = React.memo(function MessageBubble({
 
         {/* Other Documents */}
         {message.type === 'document' && !isVcf && (
-          <div 
+          <div
             className="p-2 flex items-center gap-3 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
             onClick={async () => {
-              if (mediaUrl) {
-                window.open(mediaUrl, '_blank');
+              if (fullMediaUrl) {
+                window.open(fullMediaUrl, '_blank');
               } else {
                 const url = await loadMedia();
                 if (url) window.open(url, '_blank');
@@ -377,9 +369,9 @@ export const MessageBubble = React.memo(function MessageBubble({
             {isLoading && (
               <div className="animate-spin w-5 h-5 border-2 border-whatsapp-primary border-t-transparent rounded-full" />
             )}
-            {mediaUrl && !isLoading && (
+            {fullMediaUrl && !isLoading && (
               <a
-                href={mediaUrl}
+                href={fullMediaUrl}
                 download={message.mediaFileName}
                 onClick={(e) => e.stopPropagation()}
                 className="text-whatsapp-primary hover:text-whatsapp-primary-dark"
