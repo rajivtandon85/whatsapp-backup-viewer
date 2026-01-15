@@ -7,9 +7,11 @@
 import type { Chat } from '../types';
 
 const DB_NAME = 'whatsapp-backup-cache';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Bumped to force cache clear (old data was bloated)
 const CHAT_STORE = 'chats';
 const METADATA_STORE = 'metadata';
+const CACHE_VERSION_KEY = 'cache_version';
+const CURRENT_CACHE_VERSION = '2.0'; // Version identifier for clean cache format
 
 interface CachedChat extends Chat {
   cachedAt: number;
@@ -39,26 +41,59 @@ class ChatCacheService {
         reject(request.error);
       };
 
-      request.onsuccess = () => {
+      request.onsuccess = async () => {
         this.db = request.result;
         console.log('[ChatCache] IndexedDB initialized');
+
+        // Check cache version and clear if old
+        try {
+          const storedVersion = await this.getMetadata(CACHE_VERSION_KEY);
+          if (storedVersion !== CURRENT_CACHE_VERSION) {
+            console.log(`[ChatCache] Old cache version detected (${storedVersion || 'none'}), clearing all data...`);
+            await this.clearAll();
+            await this.setMetadata(CACHE_VERSION_KEY, CURRENT_CACHE_VERSION);
+            console.log('[ChatCache] Cache cleared and version updated to', CURRENT_CACHE_VERSION);
+          }
+        } catch (err) {
+          console.error('[ChatCache] Failed to check/update cache version:', err);
+        }
+
         resolve();
       };
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
+        const oldVersion = event.oldVersion;
 
-        // Create chats object store
-        if (!db.objectStoreNames.contains(CHAT_STORE)) {
-          const chatStore = db.createObjectStore(CHAT_STORE, { keyPath: 'id' });
-          chatStore.createIndex('cachedAt', 'cachedAt', { unique: false });
-          console.log('[ChatCache] Created chats store');
+        console.log(`[ChatCache] Upgrading database from version ${oldVersion} to ${DB_VERSION}`);
+
+        // If upgrading from old version, clear everything
+        if (oldVersion > 0) {
+          // Delete old stores if they exist
+          if (db.objectStoreNames.contains(CHAT_STORE)) {
+            db.deleteObjectStore(CHAT_STORE);
+            console.log('[ChatCache] Deleted old chats store');
+          }
+          if (db.objectStoreNames.contains(METADATA_STORE)) {
+            db.deleteObjectStore(METADATA_STORE);
+            console.log('[ChatCache] Deleted old metadata store');
+          }
         }
 
-        // Create metadata store
-        if (!db.objectStoreNames.contains(METADATA_STORE)) {
-          db.createObjectStore(METADATA_STORE, { keyPath: 'key' });
-          console.log('[ChatCache] Created metadata store');
+        // Create fresh stores
+        const chatStore = db.createObjectStore(CHAT_STORE, { keyPath: 'id' });
+        chatStore.createIndex('cachedAt', 'cachedAt', { unique: false });
+        console.log('[ChatCache] Created chats store');
+
+        db.createObjectStore(METADATA_STORE, { keyPath: 'key' });
+        console.log('[ChatCache] Created metadata store');
+
+        // Set version in the transaction
+        const transaction = (event.target as IDBOpenDBRequest).transaction;
+        if (transaction) {
+          const store = transaction.objectStore(METADATA_STORE);
+          store.put({ key: CACHE_VERSION_KEY, value: CURRENT_CACHE_VERSION });
+          console.log('[ChatCache] Set cache version to', CURRENT_CACHE_VERSION);
         }
       };
     });
