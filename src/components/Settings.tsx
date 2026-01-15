@@ -4,16 +4,38 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Info, RefreshCw } from 'lucide-react';
+import { X, Trash2, Info, RefreshCw, Database } from 'lucide-react';
+import { chatCache } from '../services/chatCache';
+import { mediaCache } from '../services/mediaCache';
 
 interface SettingsProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+interface CacheStats {
+  chats: {
+    count: number;
+    messages: number;
+    size: string;
+  };
+  media: {
+    count: number;
+    size: string;
+  };
+  serviceWorker: {
+    count: number;
+    items: number;
+  };
+}
+
 export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const [appVersion, setAppVersion] = useState<string>('Loading...');
-  const [cacheSize, setCacheSize] = useState<string>('Calculating...');
+  const [cacheStats, setCacheStats] = useState<CacheStats>({
+    chats: { count: 0, messages: 0, size: '0 KB' },
+    media: { count: 0, size: '0 KB' },
+    serviceWorker: { count: 0, items: 0 },
+  });
   const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
@@ -60,23 +82,44 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   };
 
   const loadCacheInfo = async () => {
-    if ('caches' in window) {
-      try {
+    try {
+      // Get chat cache stats
+      const chatStats = await chatCache.getStats();
+
+      // Get media cache stats
+      const mediaStats = await mediaCache.getStats();
+
+      // Get service worker cache stats
+      let swCacheCount = 0;
+      let swItemCount = 0;
+      if ('caches' in window) {
         const cacheNames = await caches.keys();
-        let totalSize = 0;
+        swCacheCount = cacheNames.length;
 
         for (const cacheName of cacheNames) {
           const cache = await caches.open(cacheName);
           const keys = await cache.keys();
-          totalSize += keys.length;
+          swItemCount += keys.length;
         }
-
-        setCacheSize(`${cacheNames.length} cache(s), ${totalSize} item(s)`);
-      } catch (err) {
-        setCacheSize('Unable to calculate');
       }
-    } else {
-      setCacheSize('Not supported');
+
+      setCacheStats({
+        chats: {
+          count: chatStats.chatCount,
+          messages: chatStats.messageCount,
+          size: chatStats.estimatedSize,
+        },
+        media: {
+          count: mediaStats.count,
+          size: mediaStats.size,
+        },
+        serviceWorker: {
+          count: swCacheCount,
+          items: swItemCount,
+        },
+      });
+    } catch (err) {
+      console.error('Failed to load cache stats:', err);
     }
   };
 
@@ -88,7 +131,13 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     setIsClearing(true);
 
     try {
-      // Clear all caches
+      // Clear IndexedDB caches
+      await Promise.all([
+        chatCache.clearAll(),
+        mediaCache.clearAll(),
+      ]);
+
+      // Clear service worker caches
       if ('caches' in window) {
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map(name => caches.delete(name)));
@@ -152,13 +201,50 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
           {/* Cache Info */}
           <div className="space-y-2">
             <h3 className="text-sm font-semibold text-whatsapp-text dark:text-whatsapp-text-dark flex items-center gap-2">
-              <RefreshCw className="w-4 h-4" />
+              <Database className="w-4 h-4" />
               Cache Status
             </h3>
+
+            {/* Chat Cache */}
             <div className="bg-gray-100 dark:bg-whatsapp-background-dark rounded-lg p-3 space-y-2 text-sm">
+              <div className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark mb-1">Chat Messages</div>
               <div className="flex justify-between">
-                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Cached Data:</span>
-                <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheSize}</span>
+                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Chats:</span>
+                <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheStats.chats.count}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Messages:</span>
+                <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheStats.chats.messages.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Size:</span>
+                <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheStats.chats.size}</span>
+              </div>
+            </div>
+
+            {/* Media Cache */}
+            <div className="bg-gray-100 dark:bg-whatsapp-background-dark rounded-lg p-3 space-y-2 text-sm">
+              <div className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark mb-1">Media Files</div>
+              <div className="flex justify-between">
+                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Files:</span>
+                <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheStats.media.count}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Size:</span>
+                <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheStats.media.size}</span>
+              </div>
+            </div>
+
+            {/* Service Worker Cache */}
+            <div className="bg-gray-100 dark:bg-whatsapp-background-dark rounded-lg p-3 space-y-2 text-sm">
+              <div className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark mb-1">App Cache</div>
+              <div className="flex justify-between">
+                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Caches:</span>
+                <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheStats.serviceWorker.count}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-whatsapp-text-secondary dark:text-whatsapp-text-secondary-dark">Items:</span>
+                <span className="font-medium text-whatsapp-text dark:text-whatsapp-text-dark">{cacheStats.serviceWorker.items}</span>
               </div>
             </div>
           </div>

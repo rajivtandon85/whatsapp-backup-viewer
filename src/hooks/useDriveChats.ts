@@ -32,6 +32,8 @@ import {
   saveCachedChat,
   saveChatMeta,
 } from '../services/cacheService';
+import { chatCache } from '../services/chatCache';
+import { mediaCache } from '../services/mediaCache';
 import { parseChatFile } from '../utils/chatParser';
 import { mergeMessages, mergeParticipants } from '../utils/chatMerger';
 import type { Chat, Message, MediaFile } from '../types';
@@ -65,9 +67,6 @@ export function useDriveChats() {
     passwordId: string | null;
   }>({ publicId: null, privateId: null, passwordId: null });
 
-  // Media file cache (Drive file ID -> blob URL)
-  const [mediaCache] = useState(new Map<string, string>());
-
   /**
    * Initialize Google API and load chat folders
    */
@@ -88,8 +87,12 @@ export function useDriveChats() {
       // Load Google APIs
       await Promise.all([loadGapiClient(), loadGisClient()]);
 
-      // Initialize cache
-      await initCache();
+      // Initialize caches (old cache service + new chat/media cache)
+      await Promise.all([
+        initCache(),
+        chatCache.init(),
+        mediaCache.init(),
+      ]);
 
       // Initialize token client
       initTokenClient(async () => {
@@ -125,6 +128,37 @@ export function useDriveChats() {
       }));
     }
   }, []);
+
+  /**
+   * Preload chats in background for instant access
+   */
+  const preloadChatsInBackground = async (chatFolders: ChatFolder[]) => {
+    console.log(`[useDriveChats] Starting background preload of ${chatFolders.length} chats...`);
+
+    // Load chats one by one to avoid overwhelming the API
+    for (const folder of chatFolders) {
+      try {
+        // Check if already cached
+        const cached = await chatCache.getChat(folder.id);
+        if (cached) {
+          console.log(`[useDriveChats] Skipping preload (already cached): ${folder.name}`);
+          continue;
+        }
+
+        // Load and cache
+        console.log(`[useDriveChats] Preloading: ${folder.name}`);
+        await loadChat(folder);
+
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (err) {
+        console.error(`[useDriveChats] Failed to preload ${folder.name}:`, err);
+        // Continue with other chats
+      }
+    }
+
+    console.log('[useDriveChats] Background preload complete');
+  };
 
   /**
    * Load chats from Google Drive
@@ -175,6 +209,9 @@ export function useDriveChats() {
         privateChats,
         passwordHash,
       }));
+
+      // Preload chats in background (non-blocking)
+      preloadChatsInBackground(publicChats);
 
     } catch (error) {
       console.error('Failed to load chats:', error);
@@ -246,6 +283,16 @@ export function useDriveChats() {
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
+      // Check chat cache first for instant loading
+      const cachedChat = await chatCache.getChat(chatFolder.id);
+      if (cachedChat) {
+        console.log(`[useDriveChats] Loaded from cache: ${chatFolder.name}`);
+        setState(prev => ({ ...prev, isLoading: false }));
+        return cachedChat;
+      }
+
+      console.log(`[useDriveChats] Cache miss, loading from Drive: ${chatFolder.name}`);
+
       // Load from Drive (token validation should be done before calling this)
       const { chatTexts, mediaFiles } = await getChatFiles(chatFolder);
 
@@ -303,7 +350,18 @@ export function useDriveChats() {
       const mergedMessages = mergeMessages(allMessages);
       const mergedParticipants = mergeParticipants(allParticipants);
 
-      // Save to cache
+      const fullChat: Chat = {
+        id: chatFolder.id,
+        name: chatFolder.name,
+        messages: mergedMessages,
+        participants: mergedParticipants,
+        isGroup: mergedParticipants.length > 2,
+      };
+
+      // Save to new chat cache (IndexedDB)
+      await chatCache.saveChat(fullChat);
+
+      // Save to old cache service (for backwards compatibility)
       await saveCachedChat({
         chatId: chatFolder.id,
         messages: mergedMessages,
@@ -320,13 +378,7 @@ export function useDriveChats() {
 
       setState(prev => ({ ...prev, isLoading: false }));
 
-      return {
-        id: chatFolder.id,
-        name: chatFolder.name,
-        messages: mergedMessages,
-        participants: mergedParticipants,
-        isGroup: mergedParticipants.length > 2,
-      };
+      return fullChat;
     } catch (error) {
       console.error(`Failed to load chat "${chatFolder.name}":`, error);
       setState(prev => ({
@@ -359,25 +411,23 @@ export function useDriveChats() {
   }, []);
 
   /**
-   * Load media file on demand
+   * Load media file on demand with smart caching
    */
   const getMediaUrl = useCallback(async (driveFileId: string, mimeType: string): Promise<string> => {
-    // Check in-memory cache first
-    if (mediaCache.has(driveFileId)) {
-      return mediaCache.get(driveFileId)!;
-    }
-
     // Ensure valid token before making API call
     const hasValidToken = await ensureValidToken();
     if (!hasValidToken) {
       throw new Error('Session expired. Please sign in again.');
     }
 
-    // Load from Drive (with IndexedDB caching)
+    // Use media cache service (checks cache first, then fetches if needed)
     const url = await loadMediaFile(driveFileId, mimeType);
-    mediaCache.set(driveFileId, url);
+
+    // Store in media cache with LRU eviction
+    await mediaCache.getMedia(driveFileId, url);
+
     return url;
-  }, [mediaCache, ensureValidToken]);
+  }, [ensureValidToken]);
 
   /**
    * Refresh chats from Drive (also re-establishes connection if broken)
