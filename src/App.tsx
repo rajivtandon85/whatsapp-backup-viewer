@@ -14,9 +14,11 @@ import { ChatView } from './components/ChatView';
 import { MediaGallery } from './components/MediaGallery';
 import { DriveAuth } from './components/DriveAuth';
 import { PasswordPrompt } from './components/PasswordPrompt';
+import { UpdateNotification } from './components/UpdateNotification';
+import { Settings } from './components/Settings';
 import { useDarkMode } from './hooks/useDarkMode';
 import { useDriveChats } from './hooks/useDriveChats';
-import { Moon, Sun, Search, Menu, X, Upload, Cloud } from 'lucide-react';
+import { Moon, Sun, Search, Menu, X, Upload, Cloud, Settings as SettingsIcon } from 'lucide-react';
 import type { ChatFolder } from './services/driveService';
 
 type DataSource = 'drive' | 'local';
@@ -48,6 +50,9 @@ function App() {
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [pendingPrivateChat, setPendingPrivateChat] = useState<ChatFolder | null>(null);
   const [visiblePrivateChats, setVisiblePrivateChats] = useState<ChatFolder[]>([]);
+
+  // Settings state
+  const [showSettings, setShowSettings] = useState(false);
   
   // Handle local file upload
   const handleFileSelect = useCallback(async (file: File) => {
@@ -285,15 +290,23 @@ function App() {
   // Main app interface
   return (
     <div className="h-screen flex flex-col bg-whatsapp-panel dark:bg-whatsapp-background-dark safe-bottom">
+      {/* Update notification */}
+      <UpdateNotification />
+
       {/* Top bar (mobile) - with safe area padding */}
       <div className="lg:hidden bg-whatsapp-header dark:bg-whatsapp-header-dark border-b border-whatsapp-border dark:border-whatsapp-border-dark px-3 pb-3 flex items-center justify-between safe-top">
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-whatsapp-text dark:text-whatsapp-text-dark">
           {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
         <h1 className="text-lg font-semibold text-whatsapp-text dark:text-whatsapp-text-dark">WhatsApp Viewer</h1>
-        <button onClick={toggleDarkMode} className="text-whatsapp-text dark:text-whatsapp-text-dark">
-          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowSettings(true)} className="text-whatsapp-text dark:text-whatsapp-text-dark">
+            <SettingsIcon size={20} />
+          </button>
+          <button onClick={toggleDarkMode} className="text-whatsapp-text dark:text-whatsapp-text-dark">
+            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+        </div>
       </div>
       
       {/* Main content */}
@@ -406,6 +419,12 @@ function App() {
         onClose={() => { setShowPasswordPrompt(false); setPendingPrivateChat(null); }}
         onSubmit={handlePasswordSubmit}
         chatName={pendingPrivateChat?.name}
+      />
+
+      {/* Settings Modal */}
+      <Settings
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
       />
     </div>
   );
