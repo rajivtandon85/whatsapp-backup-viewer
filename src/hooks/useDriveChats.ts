@@ -27,9 +27,6 @@ import {
   searchChats,
   type ChatFolder,
 } from '../services/driveService';
-import {
-  initCache,
-} from '../services/cacheService';
 import { chatCache } from '../services/chatCache';
 import { mediaCache } from '../services/mediaCache';
 import { parseChatFile } from '../utils/chatParser';
@@ -85,12 +82,24 @@ export function useDriveChats() {
       // Load Google APIs
       await Promise.all([loadGapiClient(), loadGisClient()]);
 
-      // Initialize caches (old cache service + new chat/media cache)
+      // Initialize caches
       await Promise.all([
-        initCache(),
         chatCache.init(),
         mediaCache.init(),
       ]);
+
+      // Clear old cache service (legacy, no longer used)
+      // This was causing the 30MB bloat
+      try {
+        if ('indexedDB' in window) {
+          // Delete old cache database - it's no longer used
+          const oldDbRequest = indexedDB.deleteDatabase('whatsapp_backup_cache');
+          oldDbRequest.onsuccess = () => console.log('[useDriveChats] Deleted old cache database');
+          oldDbRequest.onerror = () => console.warn('[useDriveChats] Failed to delete old cache');
+        }
+      } catch (err) {
+        console.warn('[useDriveChats] Error clearing old cache:', err);
+      }
 
       // Initialize token client
       initTokenClient(async () => {
@@ -292,12 +301,15 @@ export function useDriveChats() {
       // Check chat cache first for instant loading
       const cachedChat = await chatCache.getChat(chatFolder.id);
       if (cachedChat) {
-        console.log(`[useDriveChats] Loaded from cache: ${chatFolder.name}`);
+        console.log(`[useDriveChats] ✅ Loaded from cache: ${chatFolder.name}`, {
+          messages: cachedChat.messages.length,
+          sampleMessage: cachedChat.messages.find(m => m.type === 'image'),
+        });
         setState(prev => ({ ...prev, isLoading: false }));
         return cachedChat;
       }
 
-      console.log(`[useDriveChats] Cache miss, loading from Drive: ${chatFolder.name}`);
+      console.log(`[useDriveChats] ❌ Cache miss, loading from Drive: ${chatFolder.name}`);
 
       // Load from Drive (token validation should be done before calling this)
       const { chatTexts, mediaFiles } = await getChatFiles(chatFolder);
@@ -356,15 +368,42 @@ export function useDriveChats() {
       const mergedMessages = mergeMessages(allMessages);
       const mergedParticipants = mergeParticipants(allParticipants);
 
-      // Clean messages before caching - remove blob data to save space
+      // Clean messages before caching - keep only essential data
       const cleanMessages = mergedMessages.map(msg => {
-        const cleaned: any = { ...msg };
+        // Build clean message with only essential fields
+        const cleaned: any = {
+          id: msg.id,
+          timestamp: msg.timestamp,
+          sender: msg.sender,
+          type: msg.type,
+          content: msg.content || '',
+          isOutgoing: msg.isOutgoing,
+        };
 
-        // Remove large blob data, keep only URLs and Drive IDs
-        if (msg.mediaUrl && msg.mediaUrl.startsWith('blob:')) {
-          // Don't store blob URLs in cache, they're temporary
-          delete cleaned.mediaUrl;
+        // Add media fields only if they exist
+        if (msg.driveFileId) cleaned.driveFileId = msg.driveFileId;
+        if (msg.thumbnailUrl) cleaned.thumbnailUrl = msg.thumbnailUrl;
+        if (msg.mediaFileName) cleaned.mediaFileName = msg.mediaFileName;
+        if (msg.mediaMimeType) cleaned.mediaMimeType = msg.mediaMimeType;
+        if (msg.mediaSize) cleaned.mediaSize = msg.mediaSize;
+
+        // Add optional fields only if they exist
+        if (msg.isDeleted) cleaned.isDeleted = msg.isDeleted;
+        if (msg.isEdited) cleaned.isEdited = msg.isEdited;
+        if (msg.callDuration) cleaned.callDuration = msg.callDuration;
+        if (msg.callKind) cleaned.callKind = msg.callKind;
+        if (msg.callMissed) cleaned.callMissed = msg.callMissed;
+
+        // Clean quoted message - only text, no media blobs
+        if (msg.quotedMessage) {
+          cleaned.quotedMessage = {
+            sender: msg.quotedMessage.sender,
+            content: msg.quotedMessage.content || '',
+          };
         }
+
+        // Skip reactions for now - might have large data
+        // if (msg.reactions) cleaned.reactions = msg.reactions;
 
         return cleaned;
       });
@@ -380,12 +419,19 @@ export function useDriveChats() {
       // Save to new chat cache (IndexedDB) - only text data
       await chatCache.saveChat(fullChat);
 
-      // Skip old cache service to avoid duplication
-      // The old service was causing the 82MB bloat
+      console.log(`[useDriveChats] Cached ${fullChat.messages.length} messages for "${fullChat.name}"`);
 
       setState(prev => ({ ...prev, isLoading: false }));
 
-      return fullChat;
+      // Return the full merged messages (with mediaUrls) to the UI
+      // Don't return cleaned version
+      return {
+        id: chatFolder.id,
+        name: chatFolder.name,
+        messages: mergedMessages, // Original messages with blob URLs for immediate display
+        participants: mergedParticipants,
+        isGroup: mergedParticipants.length > 2,
+      };
     } catch (error) {
       console.error(`Failed to load chat "${chatFolder.name}":`, error);
       setState(prev => ({
