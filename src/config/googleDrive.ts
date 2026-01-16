@@ -48,21 +48,58 @@ let tokenClient: google.accounts.oauth2.TokenClient | null = null;
 const TOKEN_STORAGE_KEY = 'wa_viewer_token';
 const TOKEN_EXPIRY_KEY = 'wa_viewer_token_expiry';
 
+// Auto-refresh timer
+let refreshTimer: NodeJS.Timeout | null = null;
+let tokenReceivedCallback: (() => void) | null = null;
+
 /**
- * Save token to localStorage
+ * Save token to localStorage and schedule auto-refresh
  */
 function saveToken(token: google.accounts.oauth2.TokenResponse): void {
   try {
     localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(token));
     // Token expires in expires_in seconds (usually 3600 = 1 hour)
-    const expiresIn = typeof token.expires_in === 'string' 
-      ? parseInt(token.expires_in) 
+    const expiresIn = typeof token.expires_in === 'string'
+      ? parseInt(token.expires_in)
       : (token.expires_in || 3600);
     const expiryTime = Date.now() + (expiresIn * 1000);
     localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
+
+    // Schedule automatic token refresh 5 minutes before expiry
+    scheduleTokenRefresh(expiresIn);
+
+    console.log(`[Auth] Token saved, expires in ${Math.floor(expiresIn / 60)} minutes`);
   } catch (e) {
     console.warn('Failed to save token to localStorage:', e);
   }
+}
+
+/**
+ * Schedule automatic token refresh before expiry
+ */
+function scheduleTokenRefresh(expiresInSeconds: number): void {
+  // Clear existing timer
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+  }
+
+  // Refresh 5 minutes (300 seconds) before expiry
+  // If token expires in less than 5 minutes, refresh in 30 seconds
+  const refreshIn = Math.max(30, expiresInSeconds - 300);
+
+  refreshTimer = setTimeout(async () => {
+    console.log('[Auth] Auto-refreshing token...');
+    const success = await trySilentReauth();
+    if (success) {
+      console.log('[Auth] Token refreshed successfully');
+      // Callback to notify app that token was refreshed
+      tokenReceivedCallback?.();
+    } else {
+      console.warn('[Auth] Auto-refresh failed, user will need to re-login');
+    }
+  }, refreshIn * 1000);
+
+  console.log(`[Auth] Token refresh scheduled in ${Math.floor(refreshIn / 60)} minutes`);
 }
 
 /**
@@ -72,17 +109,25 @@ function loadStoredToken(): google.accounts.oauth2.TokenResponse | null {
   try {
     const tokenStr = localStorage.getItem(TOKEN_STORAGE_KEY);
     const expiryStr = localStorage.getItem(TOKEN_EXPIRY_KEY);
-    
+
     if (!tokenStr || !expiryStr) return null;
-    
+
     const expiryTime = parseInt(expiryStr);
-    // Add 5 minute buffer before expiry
-    if (Date.now() > expiryTime - 300000) {
-      // Token expired or about to expire
+    const now = Date.now();
+    const timeUntilExpiry = expiryTime - now;
+
+    // If already expired, clear and return null
+    if (timeUntilExpiry <= 0) {
       clearStoredToken();
       return null;
     }
-    
+
+    // Token is still valid, schedule refresh for remaining time
+    const secondsUntilExpiry = Math.floor(timeUntilExpiry / 1000);
+    scheduleTokenRefresh(secondsUntilExpiry);
+
+    console.log(`[Auth] Restored token, expires in ${Math.floor(secondsUntilExpiry / 60)} minutes`);
+
     return JSON.parse(tokenStr);
   } catch (e) {
     console.warn('Failed to load token from localStorage:', e);
@@ -162,6 +207,9 @@ export function initTokenClient(onTokenReceived: () => void): void {
     return;
   }
 
+  // Store callback for auto-refresh
+  tokenReceivedCallback = onTokenReceived;
+
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: GOOGLE_SCOPES,
@@ -172,6 +220,9 @@ export function initTokenClient(onTokenReceived: () => void): void {
       }
       // Save token to localStorage for persistence
       saveToken(response);
+      // Set token in gapi client
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (gapi.client as any).setToken(response);
       onTokenReceived();
     },
   });
@@ -203,16 +254,25 @@ export function trySilentReauth(): Promise<boolean> {
       return;
     }
 
+    let resolved = false;
+
     // Re-initialize token client with new callback for this attempt
     const silentTokenClient = google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
       scope: GOOGLE_SCOPES,
       callback: (response) => {
+        if (resolved) return; // Already timed out
+        resolved = true;
+
         if (response.error) {
+          console.log('[Auth] Silent reauth failed:', response.error);
           resolve(false);
           return;
         }
+        // Save token and set in gapi client
         saveToken(response);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (gapi.client as any).setToken(response);
         resolve(true);
       },
     });
@@ -220,12 +280,18 @@ export function trySilentReauth(): Promise<boolean> {
     // Try silent auth with prompt: 'none'
     try {
       silentTokenClient.requestAccessToken({ prompt: 'none' });
-      
+
       // Set a timeout in case silent auth hangs
       setTimeout(() => {
-        resolve(false);
+        if (!resolved) {
+          resolved = true;
+          console.log('[Auth] Silent reauth timed out');
+          resolve(false);
+        }
       }, 5000);
-    } catch {
+    } catch (err) {
+      resolved = true;
+      console.log('[Auth] Silent reauth exception:', err);
       resolve(false);
     }
   });
@@ -252,14 +318,10 @@ export function requestAccessToken(): void {
     return;
   }
 
-  // Check if we already have a valid token
-  if (gapi.client.getToken() === null) {
-    // Prompt user to select account and consent
-    tokenClient.requestAccessToken({ prompt: 'consent' });
-  } else {
-    // Skip consent if already authorized
-    tokenClient.requestAccessToken({ prompt: '' });
-  }
+  // Always use empty prompt to speed up login
+  // Google will automatically show consent screen if needed
+  // If user already has a session, this will be much faster
+  tokenClient.requestAccessToken({ prompt: '' });
 }
 
 /**
@@ -274,6 +336,12 @@ export function signOut(): void {
   }
   // Clear stored token
   clearStoredToken();
+  // Clear refresh timer
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
+  console.log('[Auth] Signed out and cleared session');
 }
 
 /**
@@ -281,4 +349,25 @@ export function signOut(): void {
  */
 export function isSignedIn(): boolean {
   return gapi.client?.getToken() !== null;
+}
+
+/**
+ * Setup auto-refresh on app visibility change
+ * Call this once during app initialization
+ */
+export function setupVisibilityRefresh(): void {
+  document.addEventListener('visibilitychange', async () => {
+    if (document.hidden) return;
+
+    // User returned to app, check if token needs refresh
+    if (isSignedIn() && isTokenExpired()) {
+      console.log('[Auth] App resumed, token expired, attempting silent refresh...');
+      const success = await trySilentReauth();
+      if (success) {
+        console.log('[Auth] Token refreshed on app resume');
+        tokenReceivedCallback?.();
+      }
+    }
+  });
+  console.log('[Auth] Visibility refresh handler installed');
 }

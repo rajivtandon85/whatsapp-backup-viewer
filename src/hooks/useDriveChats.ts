@@ -14,6 +14,7 @@ import {
   tryRestoreSession,
   trySilentReauth,
   isTokenExpired,
+  setupVisibilityRefresh,
   GOOGLE_CLIENT_ID,
 } from '../config/googleDrive';
 import {
@@ -107,6 +108,9 @@ export function useDriveChats() {
         setState(prev => ({ ...prev, isSignedIn: true }));
         await loadChatsFromDrive();
       });
+
+      // Setup auto-refresh on app visibility change
+      setupVisibilityRefresh();
 
       // Try to restore session from stored token
       if (tryRestoreSession()) {
